@@ -20,6 +20,9 @@
 
 #include <stdlib.h>
 #include <string.h>
+#ifdef __GLIBC__
+# include <malloc.h>
+#endif
 
 #include "tmux.h"
 
@@ -277,6 +280,10 @@ grid_destroy(struct grid *gd)
 	free(gd->linedata);
 
 	free(gd);
+
+#ifdef M_TRIM_THRESHOLD
+	malloc_trim(0);
+#endif
 }
 
 /* Compare grids. */
@@ -368,6 +375,10 @@ void
 grid_clear_history(struct grid *gd)
 {
 	grid_trim_history(gd, gd->hsize);
+
+#ifdef M_TRIM_THRESHOLD
+	malloc_trim(0);
+#endif
 
 	gd->hscrolled = 0;
 	gd->hsize = 0;
