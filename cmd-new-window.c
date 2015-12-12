@@ -134,6 +134,10 @@ cmd_new_window_exec(struct cmd *self, struct cmdq_item *item)
 		free(cause);
 		goto error;
 	}
+
+	if (name != NULL)
+		options_set_number(wl->window->options, "user-renamed", 1);
+
 	if (!detached) {
 		session_select(s, wl->idx);
 		cmd_find_from_winlink(current, wl, 0);

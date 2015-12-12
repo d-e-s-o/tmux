@@ -2149,6 +2149,8 @@ input_exit_rename(struct input_ctx *ictx)
 		return;
 	if (!options_get_number(ictx->wp->window->options, "allow-rename"))
 		return;
+	if (options_get_number(ictx->wp->window->options, "user-renamed") != 0)
+		return;
 	log_debug("%s: \"%s\"", __func__, ictx->input_buf);
 
 	if (!utf8_isvalid(ictx->input_buf))
