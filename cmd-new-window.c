@@ -61,6 +61,7 @@ cmd_new_window_exec(struct cmd *self, struct cmdq_item *item)
 	int			 argc, detached;
 	struct environ_entry	*envent;
 	struct cmd_find_state	 fs;
+	const char *name;
 
 	if (args_has(args, 'a')) {
 		if ((idx = winlink_shuffle_up(s, wl)) == -1) {
@@ -123,13 +124,18 @@ cmd_new_window_exec(struct cmd *self, struct cmdq_item *item)
 
 	if (idx == -1)
 		idx = -1 - options_get_number(s->options, "base-index");
-	wl = session_new(s, args_get(args, 'n'), argc, argv, path, cwd, idx,
+	name = args_get(args, 'n');
+	wl = session_new(s, name, argc, argv, path, cwd, idx,
 		&cause);
 	if (wl == NULL) {
 		cmdq_error(item, "create window failed: %s", cause);
 		free(cause);
 		goto error;
 	}
+
+	if (name != NULL)
+		options_set_number(wl->window->options, "user-renamed", 1);
+
 	if (!detached) {
 		session_select(s, wl->idx);
 		server_redraw_session_group(s);
