@@ -50,6 +50,7 @@ cmd_rename_window_exec(struct cmd *self, struct cmdq_item *item)
 
 	window_set_name(wl->window, args->argv[0]);
 	options_set_number(wl->window->options, "automatic-rename", 0);
+	options_set_number(wl->window->options, "user-renamed", 1);
 
 	server_status_window(wl->window);
 
