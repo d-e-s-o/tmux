@@ -2132,24 +2132,32 @@ window_copy_cursor_jump(struct window_pane *wp)
 {
 	struct window_copy_mode_data	*data = wp->modedata;
 	struct screen			*back_s = data->backing;
+	struct grid			*gd = back_s->grid;
 	struct grid_cell		 gc;
 	u_int				 px, py, xx;
+	u_int wrapped = 0;
 
 	px = data->cx + 1;
 	py = screen_hsize(back_s) + data->cy - data->oy;
-	xx = window_copy_find_length(wp, py);
 
-	while (px < xx) {
-		grid_get_cell(back_s->grid, px, py, &gc);
-		if (!(gc.flags & GRID_FLAG_PADDING) &&
-		    gc.data.size == 1 && *gc.data.data == data->jumpchar) {
-			window_copy_update_cursor(wp, px, data->cy);
-			if (window_copy_update_selection(wp, 1))
-				window_copy_redraw_lines(wp, data->cy, 1);
-			return;
+	do {
+		xx = window_copy_find_length(wp, py);
+
+		while (px < xx) {
+			grid_get_cell(back_s->grid, px, py, &gc);
+			if (!(gc.flags & GRID_FLAG_PADDING) &&
+			    gc.data.size == 1 && *gc.data.data == data->jumpchar) {
+				window_copy_update_cursor(wp, px, data->cy + wrapped);
+				if (window_copy_update_selection(wp, 1))
+					window_copy_redraw_lines(wp, data->cy + wrapped, 1);
+				return;
+			}
+			px++;
 		}
-		px++;
-	}
+
+		px = 0;
+		wrapped += 1;
+	} while (gd->linedata[py++].flags & GRID_LINE_WRAPPED);
 }
 
 static void
@@ -2157,28 +2165,38 @@ window_copy_cursor_jump_back(struct window_pane *wp)
 {
 	struct window_copy_mode_data	*data = wp->modedata;
 	struct screen			*back_s = data->backing;
+	struct grid			*gd = back_s->grid;
 	struct grid_cell		 gc;
 	u_int				 px, py;
+	u_int wrapped = 0;
 
 	px = data->cx;
 	py = screen_hsize(back_s) + data->cy - data->oy;
 
-	if (px > 0)
-		px--;
+	do {
+		if (px > 0)
+			px--;
+		else
+			goto cont;
 
-	for (;;) {
-		grid_get_cell(back_s->grid, px, py, &gc);
-		if (!(gc.flags & GRID_FLAG_PADDING) &&
-		    gc.data.size == 1 && *gc.data.data == data->jumpchar) {
-			window_copy_update_cursor(wp, px, data->cy);
-			if (window_copy_update_selection(wp, 1))
-				window_copy_redraw_lines(wp, data->cy, 1);
-			return;
+		for (;;) {
+			grid_get_cell(back_s->grid, px, py, &gc);
+			if (!(gc.flags & GRID_FLAG_PADDING) &&
+			    gc.data.size == 1 && *gc.data.data == data->jumpchar) {
+				window_copy_update_cursor(wp, px, data->cy - wrapped);
+				if (window_copy_update_selection(wp, 1))
+					window_copy_redraw_lines(wp, data->cy - wrapped, 1);
+				return;
+			}
+			if (px == 0)
+				break;
+			px--;
 		}
-		if (px == 0)
-			break;
-		px--;
-	}
+
+cont:
+		px = screen_size_x(back_s);
+		wrapped += 1;
+	} while (gd->linedata[--py].flags & GRID_LINE_WRAPPED);
 }
 
 static void
@@ -2186,24 +2204,32 @@ window_copy_cursor_jump_to(struct window_pane *wp)
 {
 	struct window_copy_mode_data	*data = wp->modedata;
 	struct screen			*back_s = data->backing;
+	struct grid			*gd = back_s->grid;
 	struct grid_cell		 gc;
 	u_int				 px, py, xx;
+	u_int wrapped = 0;
 
 	px = data->cx + 2;
 	py = screen_hsize(back_s) + data->cy - data->oy;
-	xx = window_copy_find_length(wp, py);
 
-	while (px < xx) {
-		grid_get_cell(back_s->grid, px, py, &gc);
-		if (!(gc.flags & GRID_FLAG_PADDING) &&
-		    gc.data.size == 1 && *gc.data.data == data->jumpchar) {
-			window_copy_update_cursor(wp, px - 1, data->cy);
-			if (window_copy_update_selection(wp, 1))
-				window_copy_redraw_lines(wp, data->cy, 1);
-			return;
+	do {
+		xx = window_copy_find_length(wp, py);
+
+		while (px < xx) {
+			grid_get_cell(back_s->grid, px, py, &gc);
+			if (!(gc.flags & GRID_FLAG_PADDING) &&
+			    gc.data.size == 1 && *gc.data.data == data->jumpchar) {
+				window_copy_update_cursor(wp, px - 1, data->cy + wrapped);
+				if (window_copy_update_selection(wp, 1))
+					window_copy_redraw_lines(wp, data->cy + wrapped, 1);
+				return;
+			}
+			px++;
 		}
-		px++;
-	}
+
+		px = 0;
+		wrapped += 1;
+	} while (gd->linedata[py++].flags & GRID_LINE_WRAPPED);
 }
 
 static void
@@ -2211,31 +2237,43 @@ window_copy_cursor_jump_to_back(struct window_pane *wp)
 {
 	struct window_copy_mode_data	*data = wp->modedata;
 	struct screen			*back_s = data->backing;
+	struct grid			*gd = back_s->grid;
 	struct grid_cell		 gc;
 	u_int				 px, py;
+	u_int wrapped = 0;
 
 	px = data->cx;
 	py = screen_hsize(back_s) + data->cy - data->oy;
 
-	if (px > 0)
-		px--;
+	do {
+		if (px > 0)
+			px--;
+		else
+			goto cont;
 
-	if (px > 0)
-		px--;
+		if (px > 0)
+			px--;
+		else
+			goto cont;
 
-	for (;;) {
-		grid_get_cell(back_s->grid, px, py, &gc);
-		if (!(gc.flags & GRID_FLAG_PADDING) &&
-		    gc.data.size == 1 && *gc.data.data == data->jumpchar) {
-			window_copy_update_cursor(wp, px + 1, data->cy);
-			if (window_copy_update_selection(wp, 1))
-				window_copy_redraw_lines(wp, data->cy, 1);
-			return;
+		for (;;) {
+			grid_get_cell(back_s->grid, px, py, &gc);
+			if (!(gc.flags & GRID_FLAG_PADDING) &&
+			    gc.data.size == 1 && *gc.data.data == data->jumpchar) {
+				window_copy_update_cursor(wp, px + 1, data->cy - wrapped);
+				if (window_copy_update_selection(wp, 1))
+					window_copy_redraw_lines(wp, data->cy - wrapped, 1);
+				return;
+			}
+			if (px == 0)
+				break;
+			px--;
 		}
-		if (px == 0)
-			break;
-		px--;
-	}
+
+cont:
+		px = screen_size_x(back_s);
+		wrapped += 1;
+	} while (gd->linedata[--py].flags & GRID_LINE_WRAPPED);
 }
 
 static void
