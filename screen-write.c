@@ -2088,7 +2088,7 @@ screen_write_combine(struct screen_write_ctx *ctx, const struct grid_cell *gc)
 	if (utf8_is_zwj(ud))
 		zero_width = 1;
 	else if (utf8_is_vs(ud))
-		zero_width = force_wide = 1;
+		zero_width = 1;
 	else if (ud->width == 0)
 		zero_width = 1;
 
