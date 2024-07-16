@@ -850,7 +850,7 @@ cmd_template_replace(const char *template, const char *s, int idx)
 			if (*ptr < '1' || *ptr > '9' || *ptr - '0' != idx) {
 				if (*ptr != '%' || replaced)
 					break;
-				replaced = 1;
+				replaced = 0;
 			}
 			ptr++;
 
