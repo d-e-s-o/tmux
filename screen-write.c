@@ -2076,7 +2076,7 @@ screen_write_combine(struct screen_write_ctx *ctx, const struct grid_cell *gc)
 	struct grid		*gd = s->grid;
 	const struct utf8_data	*ud = &gc->data;
 	u_int			 n, cx = s->cx, cy = s->cy;
-	struct grid_cell	 last;
+	struct grid_cell	 last, space;
 	struct tty_ctx		 ttyctx;
 	int			 force_wide = 0, zero_width = 0;
 
@@ -2147,8 +2147,11 @@ screen_write_combine(struct screen_write_ctx *ctx, const struct grid_cell *gc)
 
 	/* Set the new cell. */
 	grid_view_set_cell(gd, cx - n, cy, &last);
-	if (force_wide)
-		grid_view_set_padding(gd, cx, cy);
+	if (force_wide) {
+		memcpy(&space, &last, sizeof space);
+		utf8_set(&space.data, ' ');
+		grid_view_set_cell(gd, cx - 1, cy, &space);
+	}
 
 	/*
 	 * Redraw the combined cell. If forcing the cell to width 2, reset the
@@ -2159,8 +2162,15 @@ screen_write_combine(struct screen_write_ctx *ctx, const struct grid_cell *gc)
 	screen_write_set_cursor(ctx, cx - n, cy);
 	screen_write_initctx(ctx, &ttyctx, 0);
 	ttyctx.cell = &last;
-	ttyctx.num = force_wide; /* reset cached cursor position */
+	ttyctx.num = force_wide;
 	tty_write(tty_cmd_cell, &ttyctx);
+	if (force_wide) {
+		screen_write_set_cursor(ctx, cx - 1, cy);
+		screen_write_initctx(ctx, &ttyctx, 0);
+		ttyctx.cell = &space;
+		ttyctx.num = force_wide;
+		tty_write(tty_cmd_cell, &ttyctx);
+	}
 	screen_write_set_cursor(ctx, cx, cy);
 
 	return (1);
