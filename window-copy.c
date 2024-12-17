@@ -1967,10 +1967,7 @@ window_copy_cmd_search_again(struct window_copy_cmd_state *cs)
 	struct window_copy_mode_data	*data = wme->data;
 	u_int				 np = wme->prefix;
 
-	if (data->searchtype == WINDOW_COPY_SEARCHUP) {
-		for (; np != 0; np--)
-			window_copy_search_up(wme, data->searchregex);
-	} else if (data->searchtype == WINDOW_COPY_SEARCHDOWN) {
+	if (data->searchtype != WINDOW_COPY_OFF) {
 		for (; np != 0; np--)
 			window_copy_search_down(wme, data->searchregex);
 	}
@@ -1984,10 +1981,7 @@ window_copy_cmd_search_reverse(struct window_copy_cmd_state *cs)
 	struct window_copy_mode_data	*data = wme->data;
 	u_int				 np = wme->prefix;
 
-	if (data->searchtype == WINDOW_COPY_SEARCHUP) {
-		for (; np != 0; np--)
-			window_copy_search_down(wme, data->searchregex);
-	} else if (data->searchtype == WINDOW_COPY_SEARCHDOWN) {
+	if (data->searchtype != WINDOW_COPY_OFF) {
 		for (; np != 0; np--)
 			window_copy_search_up(wme, data->searchregex);
 	}
