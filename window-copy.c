@@ -337,6 +337,8 @@ window_copy_clone_screen(struct screen *src, struct screen *hint, u_int *cx,
 	u_int			 sy, wx, wy;
 	int			 reflow;
 
+	grid_reflow_history(src->grid);
+
 	dst = xcalloc(1, sizeof *dst);
 
 	sy = screen_hsize(src) + screen_size_y(src);

@@ -811,6 +811,8 @@ struct grid {
 	u_int			 hsize;
 	u_int			 hlimit;
 
+	u_int			 reflow_hsize;
+
 	struct grid_line	*linedata;
 };
 
@@ -2922,6 +2924,7 @@ char	*grid_string_cells(struct grid *, u_int, u_int, u_int,
 void	 grid_duplicate_lines(struct grid *, u_int, struct grid *, u_int,
 	     u_int);
 void	 grid_reflow(struct grid *, u_int);
+void	 grid_reflow_history(struct grid *);
 void	 grid_wrap_position(struct grid *, u_int, u_int, u_int *, u_int *);
 void	 grid_unwrap_position(struct grid *, u_int *, u_int *, u_int, u_int);
 u_int	 grid_line_length(struct grid *, u_int);
