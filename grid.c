@@ -315,6 +315,7 @@ grid_create(u_int sx, u_int sy, u_int hlimit)
 		gd->linedata = xcalloc(gd->sy, sizeof *gd->linedata);
 	else
 		gd->linedata = NULL;
+	gd->reflow_hsize = 0;
 
 	return (gd);
 }
@@ -364,6 +365,11 @@ grid_trim_history(struct grid *gd, u_int ny)
 	grid_free_lines(gd, 0, ny);
 	memmove(&gd->linedata[0], &gd->linedata[ny],
 	    (gd->hsize + gd->sy - ny) * (sizeof *gd->linedata));
+
+	if (gd->reflow_hsize > ny)
+		gd->reflow_hsize -= ny;
+	else
+		gd->reflow_hsize = 0;
 }
 
 /*
@@ -1410,17 +1416,53 @@ grid_reflow(struct grid *gd, u_int sx)
 	struct grid_line	*gl;
 	struct grid_cell	 gc;
 	u_int			 yy, width, i, at;
+	u_int			 boundary;
+
+	/*
+	 * Find the reflow boundary: walk backward from hsize to find the
+	 * latest position where the preceding line is not wrapped. Lines
+	 * before the boundary form complete logical lines and their reflow
+	 * can be deferred until history is actually accessed.
+	 */
+	boundary = gd->hsize;
+	while (boundary > 0 &&
+	    (gd->linedata[boundary - 1].flags & GRID_LINE_WRAPPED))
+		boundary--;
+
+	/*
+	 * If there is already a pending deferred reflow, make sure we do
+	 * not shrink the unreflowed region (those lines still need reflow).
+	 */
+	if (gd->reflow_hsize > boundary)
+		boundary = gd->reflow_hsize;
 
 	/*
 	 * Create a destination grid. This is just used as a container for the
 	 * line data and may not be fully valid.
 	 */
 	target = grid_create(gd->sx, 0, 0);
+	target->linedata = xcalloc(gd->hsize + gd->sy,
+	    sizeof *target->linedata);
 
 	/*
-	 * Loop over each source line.
+	 * Phase 1: Bulk-copy unreflowed history lines (0..boundary-1).
+	 * These lines are complete logical lines that will be reflowed
+	 * on demand when history is accessed.
 	 */
-	for (yy = 0; yy < gd->hsize + gd->sy; yy++) {
+	if (boundary > 0) {
+		grid_reflow_add(target, boundary);
+		memcpy(target->linedata, gd->linedata,
+		    boundary * sizeof *target->linedata);
+		memset(gd->linedata, 0,
+		    boundary * sizeof *gd->linedata);
+		for (i = 0; i < boundary; i++)
+			gd->linedata[i].flags = GRID_LINE_DEAD;
+	}
+
+	/*
+	 * Phase 2: Reflow from boundary to end.
+	 */
+	for (yy = boundary; yy < gd->hsize + gd->sy; yy++) {
 		gl = &gd->linedata[yy];
 		if (gl->flags & GRID_LINE_DEAD)
 			continue;
@@ -1484,6 +1526,87 @@ grid_reflow(struct grid *gd, u_int sx)
 		gd->hscrolled = gd->hsize;
 	free(gd->linedata);
 	gd->linedata = target->linedata;
+	gd->reflow_hsize = boundary;
+	free(target);
+
+	/*
+	 * If joins reduced the line count enough that unreflowed history
+	 * lines ended up in the visible area, reflow them now.
+	 */
+	if (gd->reflow_hsize > gd->hsize)
+		grid_reflow_history(gd);
+}
+
+/* Reflow deferred history lines to the current grid width. */
+void
+grid_reflow_history(struct grid *gd)
+{
+	struct grid		*target;
+	struct grid_line	*gl, *new_linedata;
+	struct grid_cell	 gc;
+	u_int			 yy, width, i, at;
+	u_int			 n, m, remaining, new_total;
+
+	if (gd->reflow_hsize == 0)
+		return;
+
+	n = gd->reflow_hsize;
+
+	/* Build a temporary target for the reflowed history. */
+	target = grid_create(gd->sx, 0, 0);
+	target->linedata = xcalloc(n, sizeof *target->linedata);
+
+	for (yy = 0; yy < n; yy++) {
+		gl = &gd->linedata[yy];
+		if (gl->flags & GRID_LINE_DEAD)
+			continue;
+
+		at = width = 0;
+		if (~gl->flags & GRID_LINE_EXTENDED) {
+			width = gl->cellused;
+			if (width > gd->sx)
+				at = gd->sx;
+			else
+				at = width;
+		} else {
+			for (i = 0; i < gl->cellused; i++) {
+				grid_get_cell1(gl, i, &gc);
+				if (at == 0 && width + gc.data.width > gd->sx)
+					at = i;
+				width += gc.data.width;
+			}
+		}
+
+		if (width == gd->sx)
+			grid_reflow_move(target, gl);
+		else if (width > gd->sx)
+			grid_reflow_split(target, gd, gd->sx, yy, at);
+		else if (gl->flags & GRID_LINE_WRAPPED)
+			grid_reflow_join(target, gd, gd->sx, yy, width, 0);
+		else
+			grid_reflow_move(target, gl);
+	}
+
+	/* Splice: replace lines 0..n-1 with the reflowed result. */
+	m = target->sy;
+	remaining = gd->hsize + gd->sy - n;
+	new_total = m + remaining;
+
+	new_linedata = xreallocarray(NULL, new_total, sizeof *new_linedata);
+	memcpy(new_linedata, target->linedata, m * sizeof *new_linedata);
+	memcpy(new_linedata + m, gd->linedata + n,
+	    remaining * sizeof *new_linedata);
+
+	free(gd->linedata);
+	gd->linedata = new_linedata;
+
+	gd->hsize = gd->hsize + m - n;
+	if (gd->hscrolled > gd->hsize)
+		gd->hscrolled = gd->hsize;
+
+	gd->reflow_hsize = 0;
+
+	free(target->linedata);
 	free(target);
 }
 
