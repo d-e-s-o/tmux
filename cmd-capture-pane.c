@@ -118,6 +118,8 @@ cmd_capture_pane_history(struct args *args, struct cmdq_item *item,
 	const char			*Sflag, *Eflag;
 	size_t				 linelen;
 
+	grid_reflow_history(wp->base.grid);
+
 	sx = screen_size_x(&wp->base);
 	if (args_has(args, 'a')) {
 		gd = wp->base.saved_grid;
