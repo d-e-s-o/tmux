@@ -522,6 +522,18 @@ server_client_free(__unused int fd, __unused short events, void *arg)
 	cmdq_free(c->queue);
 
 	if (c->references == 0) {
+		if (event_initialized(&c->tty.timer))
+			event_del(&c->tty.timer);
+		if (event_initialized(&c->tty.start_timer))
+			evtimer_del(&c->tty.start_timer);
+		if (event_initialized(&c->tty.clipboard_timer))
+			evtimer_del(&c->tty.clipboard_timer);
+		if (event_initialized(&c->tty.key_timer))
+			evtimer_del(&c->tty.key_timer);
+		if (event_initialized(&c->tty.event_in))
+			event_del(&c->tty.event_in);
+		if (event_initialized(&c->tty.event_out))
+			event_del(&c->tty.event_out);
 		free((void *)c->name);
 		free(c);
 	}
